@@ -1,0 +1,217 @@
+
+
+def ResultType   : Type = ValueStatement.ToType | CallStatement.ToType 
+def SlotNameType : Type = String; 
+def SlotType     : Type = :[SlotNameType & SlotNameType];
+
+def Statement = ![]{
+  def ToString = ![]{Error["not implemented"];};
+  Frame;
+};
+
+def VarStatement = ![]{
+  inc Statement;
+  var name  : SlotNameType;
+  var type  : DataType = All;
+  var value : ResultType | None;
+  Frame;
+};
+
+def DefStatement = ![]{
+  inc Statement;
+  var name  : SlotNameType;
+  var type  : DataType = All;
+  var value : ResultType;
+  Frame;
+};
+
+def IncStatement = ![]{
+  inc Statement;
+  var name : SlotType;
+  Frame;
+};
+
+def SetStatement = ![]{
+  inc Statement;
+  var name  : SlotType;
+  var value : ResultType;
+  Frame;
+};
+
+def ValueStatement = ![]{
+  inc Statement;
+  # ... TODO
+  Frame;
+};
+
+def CallStatement = ![]{
+  inc Statement;
+  # ... TODO
+  Frame;
+};
+
+# ------------------------------------------------------------------ #
+
+def ReadStatement = ![]{
+  SkipWhitespace[];
+   
+  def Next : String = Stream.Peak[3];
+   
+  var result;
+   
+  Next.Equal["var"].IfTrue[{
+    set result = ReadVarStatement[];
+  }];
+  Next.Equal["def"].IfTrue[{
+    set result = ReadDefStatement[];
+  }];
+  Next.Equal["inc"].IfTrue[{
+    set result = ReadIncStatement[];
+  }];
+  Next.Equal["set"].IfTrue[{
+    set result = ReadSetStatement[];
+  }];
+   
+  Next.Elem[0].OneOf["1234567890-"].IfTrue[{
+    set result = ReadNumberValue[];
+  }];
+   
+  Next.Elem[0].Equal["\""].IfTrue[{
+    set result = ReadStringValue[];
+  }];
+   
+  Next.Elem[0].Equal["["].IfTrue[{
+    set result = ReadListValue[];
+  }];
+   
+  Next.Elem[0].Equal["{"].IfTrue[{
+    set result = ReadDictValue[];
+  }];
+   
+  Next.Elem[0].Equal["!"].IfTrue[{
+    set result = ReadCodeBlockValue[];
+  }];
+   
+  Next.Elem[0].Equal[":"].IfTrue[{
+       set result = ReadDatatypeValue[];
+  }];
+  
+  result.IfNull[{
+    set result = ReadCallChain[];
+  }];
+   
+  result;
+};
+
+
+def ReadVarStatement = ![] {
+  ReadLiteral["var"];
+  SkipWhitespace[];
+  
+  def Result = VarStatement[];
+  
+  set Result.name = ReadName[];
+  SkipWhitespace[];
+  
+  def Next : String = Stream.Peek[1];
+  
+  Next.Equal[':'].IfTrue[{
+    ReadLiteral[":"];
+    SkipWhitespace[];
+    set Result.type = ReadType[];
+    SkipWhitespace[];
+  }];
+  
+  Next.Equal['='].IfTrue[{
+    ReadLiteral["="];
+    SkipWhitespace[];
+    set Result.value = ReadType[];
+    SkipWhitespace[];
+  }];
+  
+  ReadLiteral[";"];
+
+  Statements.Append(Result);
+}
+
+
+def ReadDefStatement = ![] {
+  ReadLiteral["def"];
+  SkipWhitespace[];
+  
+  def Result = DefStatement[];
+  
+  set Result.name = ReadName[];
+  SkipWhitespace[];
+  
+  def Next : String = Stream.Peek[1];
+  
+  Next.Equal[':'].IfTrue[{
+    ReadLiteral[":"];
+    SkipWhitespace[];
+    set Result.type = ReadType[];
+    SkipWhitespace[];
+  }];
+  
+  ReadLiteral["="];
+  SkipWhitespace[];
+  set Result.value = ReadType[];
+  SkipWhitespace[];
+  
+  ReadLiteral[";"];
+
+  Statements.Append(Result);
+}
+
+
+def ReadIncStatement = ![] {
+  ReadLiteral["inc"];
+  SkipWhitespace[];
+  
+  def Result = IncStatement[];
+  
+  set Result.name = ReadName[];
+  SkipWhitespace[];
+  
+  ReadLiteral[";"];
+
+  Statements.Append(Result);
+}
+
+
+def ReadSetStatement = ![] {
+  ReadLiteral["set"];
+  SkipWhitespace[];
+  
+  def Result = SetStatement[];
+  
+  set Result.slot = ReadSlotLookup[];
+  SkipWhitespace[];
+  set Result.result = ReadResult[];
+  SkipWhitespace[];
+  
+  ReadLiteral[";"];
+
+  Statements.Append(Result);
+}
+
+
+def ReadSlotLookup = ![] {
+  
+  set Result = [];
+  
+  Result.Append[ReadName[]];
+  SkipWhitespace[];
+  
+  WhileTrue[{
+    Stream.Peek[1].Equal["."].IfTrue[{
+      ReadLiteral["."];
+      SkipWhitespace[];
+      Result.Append[ReadName[]];
+      SkipWhitespace[];
+      True;
+    },{
+      False;
+    }];
+  }]
+}

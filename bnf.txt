@@ -1,0 +1,232 @@
+
+To Do
+====
+
+think of replacing {} with () for dictionaries. It keeps the syntax
+for them the same. Or can I unify `dict` and `![]{def ...; Frame}` a
+better way.
+
+I want to be able to call things as 
+
+    True.IfTrue[{Print["hi"];}]
+
+But currently I have to do:
+
+    True.IfTrue[![]{Print["hi"];}]
+
+If I say the `![]` is optional then I cann't tell whether something is
+a dict or a codeblock. I am not using `()` so I could user these for
+dicts.
+
+----
+
+I want to be able to use dicts like so:
+
+    ( x=4, )
+  
+I currently have to do:
+
+    { "x"=4 }
+    
+----
+
+for it to make any sense at all I think the container types must
+forbid adding or removing from them if they are created with `def`.
+
+-------------------------------------------------------------------------------
+     
+    <file>      ::= <statement>+
+    <statement> ::= ( <var-creation> | <def-creation> | <inc> | <assignment> | <value> | <call-chain> ) ";"
+     
+    # with a 3 char peek we can tell which of these we are on.
+    <var-creation> ::= "var" <slot-name> (":" <type>)? ("=" <result>)? 
+    <def-creation> ::= "def" <slot-name> (":" <type>)?  "=" <result>
+    <inc>          ::= "inc" <slot-lookup>
+    <assignment>   ::= "set" <slot-lookup> "=" <result> 
+    <value>        ::= <number> | <string> | <list> | <dict> | <codeblock> | <datatype>
+    <call-chain>   ::= ((<value> | <slot-lookup> | <call-statement>) "." )* (<value> | <slot-lookup> | <call-statement>)
+     
+    # it would be nice for type to be a haskel like pattern matching thing but not now
+    <slot-name>  ::= <name>
+    <type>       ::= <datatype>
+    <name>       ==> [A-Za-z_][A-Za-z_0-9\-]* # cannot be: var, def, inc
+     
+    # most of these are the same as JSON
+    <number>     ==> -?[0-9]+(\.[0-9]+)?
+    <string>     ==> \"[^\"]*\"
+    <list>       ::= ("[" "]") | ( "[" <result> ("," <result>)* "]" )
+    <dict>       ::= ("(" ")") | ( "(" <string> "=" <result> ("," <string> "=" <result>)* ")" )
+    <codeblock>  ::= ("!" <list-matcher>)? "{" <statement>* "}"
+    <datatype>   ::= <or-type> | <list-type> | <dict-type> | <result> # only results that eval to a type.
+     
+    <slot-lookup>    ::= <slot-name> ("." <slot-name>)*
+    <call-statement> ::= <slot-lookup> (<list> | <dict>)
+
+    # a list of names with an optional "gather the rest" argument.
+    <list-matcher> ::= ("[" ("&" <name>)? "]") | ( "[" <name> ("," <name>)* ("&" <name>)? "]" )
+     
+    # anything that evals to a value or is a value
+    <result>       ::= <value> | <call-chain>
+    
+    <or-type>    ::= ":" <result> ("|" <result>)* # only results that eval to a type.
+    <list-type>  ::= ":" (("[" ("&" <datatype>)? "]") | ( "[" <datatype> ("," <datatype>)* ("&" <datatype>)? "]" ))
+    <dict-type>  ::= ":" (("(" ")") | ( "(" <string> "=" <datatype> ("," <string> "=" <datatype>)* ")" ))
+
+-------------------------------------------------------------------------------
+
+    # note how we collect all the args in one var
+    def AddAll = ![:args] {
+      var result = 0;
+      args.ForEach[![x]{
+        result.Add(x);};];
+      result;
+    };
+     
+    AddAll[];  # ==> 0
+    AddAll[1]; # ==> 1
+    AddAll[2]; # ==> 2
+    AddAll[2, 3]; # ==> 5
+    AddAll[2, 3, 4]; # ==> 9
+
+-------------------------------------------------------------------------------
+     
+    def CallWithDict = !(a, b, c) {
+      a.Add[b].Add[c];
+    }
+     
+    CallWithDict{};                   # error expected 3 args got none
+    CallWithDict{d:1, e:2, f:3};      # error expected args (a,b,c) got (d,e,f)
+    CallWithDict[];                   # error expected 3 args got none
+    CallWithDict[1, 2, 3];            # ok
+    CallWithDict{c:1, b:2, a:3};      # ok, even though they are in differnt order
+    CallWithDict{c:1, d:2, a:3, b:4}; # ok, even though there is an extra arg
+
+-------------------------------------------------------------------------------
+
+# sadly I can make line noise like so:
+![]{4;}[] # ==> 4
+# it creates a code block with no args that returns the value 4 then evaluates that code block.
+
+-------------------------------------------------------------------------------
+
+Conventions
+----
+
+1. var slots start with lowercase
+1. def slots start with uppercase
+1. private slots are prepended with underscore
+1. classes or objects are codeblocks that inc `Object` (or something that does) and return `frame`.
+  
+-------------------------------------------------------------------------------
+     
+    def Player = {
+      inc Object;
+      var speed : Number;
+      var location : Point;
+      frame;
+    };
+     
+    var player = Player[];
+    set player.speed = 4;
+    set player.location = Point[0, 0];
+    player.location.add[player.velocity];
+     
+    def Point = []{
+      inc Object;
+      var x : Number;
+      var y : Number;
+      frame;
+    };
+     
+    def Point3D = []{
+      inc Point;
+      var z : Number;
+      frame;
+    };
+     
+     
+    def ListReader = [stream]{
+     
+      def Whitespace = "\t\n ";
+     
+      def SkipWhitespace = ![]{
+        DoWhileTrue[{
+          def KeepGoing = stream.Peek[].In[Whitespace];
+          KeepGoing.IfTrue [{stream.Read []}];
+          KeepGoing;
+        }];
+      }
+     
+      def ReadUntilOneOf = ![value]{
+        var result = [];
+        DoWhileTrue[{
+          var KeepGoing = stream.Peek[].NotIn[value];
+          KeepGoing.IfTrue[{result.Append[stream.Read[]];}];
+          return KeepGoing;
+        }];
+        result;
+      }
+     
+      def ReadLiteral = ![char]{
+        stream.Read[].Equal[char].IfFalse[Throw["Failed to read: ".Append[char]]];
+      }
+     
+      def Parse = ![]{
+        var result = [];
+        SkipWhitespace[];
+        ReadLiteral['['];
+        SkipWhitespace[];
+     
+        # read value or ']'
+        stream.Peek[].Equal[']'].IfFalse[{
+          # read value
+          result.Append[ReadUntilOneOf["],"]];
+        }];
+        
+        # while we are not on ']'
+        DoWhileTrue[{
+          stream.Peek[].Equal[']'].IfTrue[{
+            ReadLiteral[']'];
+            False; # stop looping
+          },{
+            # read comma then value
+            ReadLiteral[','];
+            result.Append[ReadUntilOneOf["],"]];
+            True; # keep looping
+          }];
+      }
+      
+      return Parse[];
+    }
+     
+    JsonListReader[Stream.FromString["[ ]"]];
+    JsonListReader[Stream.FromString["[ 1 ]"]];
+    JsonListReader[Stream.FromString["[ 1 , 2 ]"]];
+    JsonListReader[Stream.FromString["[ 1, 2, 3 ]"]];
+     
+    def Temp = ![]{var x; frame;};
+     
+    Temp.x;         # ==> compile error: codeblock does not have slot "x"
+    Temp.Type;      # ==> "codeblock"
+    Temp[].x;       # ==> Null
+    Temp[].Type;    # ==> "dict"
+    Temp[].x.Type;  # ==> "any"
+    set Temp[].x = 4;   # ok, but useless, you wont have access to the thing you just set.
+     
+    var player = Temp; # no problems here
+    player.Type;       # ==> "codeblock"
+    player.x;          # ==> compile error codeblock does not have slot "x"
+     
+    def Player1 : Dict = Temp;   # compile error: Temp is not a dict it's a codeblock
+    def Player2 : Dict = Temp[]; # no problem
+     
+    Player2.z.Type;       # compile error: dict "Player2" does not have slot "z"
+    Player2.x.Type;       # ==> "any"
+    set Player2.x = 4;    # ok, even though player is read only it's contents don't have to be.
+    set Player2 = Temp[]; # error, Player2 is read only 
+     
+    # it contains things of different types and the things get eval'd at compile time (or at least 
+    # when the slot is created rather than used.
+    def Heterogeneous = [ 1.Add[4], " ".Join[1, 2, 3], True];
+
+------------------------------------------------------------------------------------

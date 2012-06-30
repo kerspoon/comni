@@ -1,0 +1,78 @@
+
+
+These are the built in datatypes:
+
+1. Number  - int, real, float, double
+1. String  - char array
+1. Array   - list, vector, set, stack, queue
+1. Dict    - table, assoc array, map, class, oject, class instance 
+1. Atom    - symbol
+1. Closure - function
+1. Type    - pattern, data type
+
+var x = 5;
+
+x : Int
+
+lookup the right hand side eval the symbol to get a Type
+
+
+rvar Point : Type;
+rvar Point = In {var x; var y;}
+
+Type ::= ("Either" | "And")  "(" ( <Type> "," )* <Type> ")"
+Type ::= <Basic-Type>
+Type ::= "In" | "NotIn" 
+
+
+
+
+Type := <built-in> | <pattern> | "Either(" <type>* ")"
+
+
+------------------------------------------------------------------------------------
+
+
+
+Dictionary is a datatype
+
+  int
+  real
+  string
+  dict
+  bool
+  symbol
+  enum
+
+can we add to it
+which values can we change 
+
+rvar x = ... 
+
+x is always the value set here.
+
+If we make a closure that returns self that is a rvar then we
+cannot add new slots to it - it is a static datatype. 
+
+If you specify a datatype (which is simply a builtin or a rvar-closure)
+Then you cannot set it to something else, otherwise anything is game.
+
+rvar Stanza := closure
+rvar Stanza = {
+    private var name       := string
+    private var attributes := dict 
+    private var content
+    private rvar id        : int = 4 
+
+    var toString = {
+      // ...
+    }
+
+    self;
+}
+
+
+var x = Stanza 
+x.foo = 3
+
+ 

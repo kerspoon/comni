@@ -1,0 +1,81 @@
+
+// Basic
+
+sel[
+  next.Equal["var"], ReadVarStatement[],
+  next.Equal["set"], ReadSetStatement[]
+];
+
+// After macros
+
+next.Equal["var"].IfTrue[{
+  readVarStatement[];
+}, { 
+  next.Equal["set"].IfTrue[{
+    readSetStatement[];
+  }]
+}];
+
+// Prep for C
+
+def __func1__ = ![]{
+  next
+  .Equal
+  [
+    "var"
+  ]
+  .IfTrue
+  [ 
+    __func2__
+  ,
+    __func3__
+  ];
+}
+
+def __func2__ = ![]{
+  readVarStatement
+  []
+  ;
+}
+
+def __func3__ = ![]{
+  next
+  .Equal
+  [
+    "set"
+  ]
+  .IfTrue
+  [ 
+    __func4__
+  ];
+}
+
+def __func4__ = ![]{
+  readSetStatement
+  []
+  ;
+}
+
+// Clean C
+
+Obj func1(envorinment) {
+  Obj obj1 = lookup(environment, "next");
+  Obj obj2 = lookup(obj1, "Equal");
+  Obj obj3 = make_string("var");
+  Obj obj4 = eval(obj2, [obj3]);
+  Obj obj5 = lookup(obj4, "IfTrue");
+  Obj obj6 = eval(obj5, [func2, func3]);
+  return obj6;
+}
+
+Obj func2(envorinment) {
+  Obj obj1 = lookup(environment, "ReadVarStatement");
+  Obj obj2 = eval(obj1, []);
+  return obj2;
+}
+
+void built_in_ifTrue(condition, consequence, alternative) {
+  if (
+
+
+

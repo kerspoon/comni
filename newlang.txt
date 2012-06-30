@@ -1,0 +1,170 @@
+
+
+object-prototype-classes, explicitly-typed (OPCET) language
+====
+
+Based upon:
+
++ SmallTalk
++ Lisp
++ http://slatelanguage.org/
++ http://www.iolanguage.com/
+
+Syntax
+----
+
++ `$define` special form
++ `|...|{...}` lambda 
++ `{...}` code block AKA lambda that take no args it is the same as `||{...}`
++ `'x` symbol (i.e. it evaluates to `x`)
++ `[1, 2, 3]` a list
++ `#abcdef` is a comment
+
+Ideas
+====
+
+Everything is a class. There is no distinction between an object (instance) and class. Env is a special class that represents the current environment. TopEnv is the top level environment. These environments get added to and changed just like any other class. 
+
+Types are set on each class slot explicitly before the slot can be used. As everything starts off fully dynamic OPCET allows permissions to be set that limit possible changes. In this way a class can be created and finalised and will stay consistent through the programs execution.
+
+`{self first}` calls `first` on object `self`. The object decides what to do with the call. It may raise an exception, call a function or return a value. If you just want to get a value from a slot then either hope that you can access it by name (the default) as in `{self x}` or use the function get as in: `{self get 'x}`. Even if `x` has a function stored in the slot it will be returned not called.  
+
+Example
+----
+
+Everything is of the form `noun verb noun ...` AKA `object function parameters ...`. Except for some special forms. In the example below we create a new class called `Point` that is a subclass of `BaseClass`. It is then given 4 slots two of which are set to functions and then made read only the other two are left unset and are made virtual. Finally a new subclass of `Point` is made setting x and y and printing the class to the screen
+
+    Env set! 'Point {BaseClass clone}
+    Point define! 'x   (Int)
+    Point define! 'y   (Int)
+    Point define! '+=  (Func [Int] None)
+    Point define! 'str (Func [] Str)
+    Point set!    '+= |other|{self set! 'x {{other x} + {self x}}
+                             self set! 'y {{other y} + {self y}}}
+    Point set!    'str {{{self x} str} append " " {{self y} str}}
+    Point chmod! '+=   'read-only
+    Point chmod! 'str  'read-only
+    Point chmod! 'x    'virtual
+    Point chmod! 'y    'virtual
+    Point class-finilize!
+
+    Env set! 'p1 {Point clone}
+    p1 set! 'x 4
+    p1 set! 'y 5
+    display {p1 str}
+
+Misc Examples
+----
+
+    5 factorial
+    5 + 2
+    {5 factorial} + 2
+
+    Env import "myfile.opcet"
+    Env slots
+
+
+    {4 < 5} ifTrue {"It's true!"} {"It's false!"}
+
+    mylist map |x|{x+1}
+    mylist forifeach 'x {x%2} {x^2}
+    mylist filter |x|{x%2}
+
+    # create a list from 1 to 6
+    1 to 6
+
+    # The last element of a list
+    List define! 'last (Func [] Any)
+    List set!    'last 
+      {
+        Env set! 'rest {self cdr}
+        {rest is None} ifTrue 
+          {self car}  
+          {rest last}
+      }
+
+    # foldr on a list
+    List define! 'foldr (Func [(Func [x (List x)] y) (List y)] x)
+    List set! 'foldr |func end|
+      {
+        {self is None} ifTrue 
+          end
+          {{self car} func {{self cdr} foldr func end}}
+      }
+
+    # this one could be stored in an environment and added to any 
+    # classes where it was applicable like so:
+
+    TopEnv set! myIterable {BaseClass clone}
+    myIterable define! 'foldr {{List get 'foldr} type}
+    myIterable set! 'foldr {List get 'foldr}
+
+    # here we create a new class in the top level environment AKA a 
+    # global. This gets a new slot called foldr and we lookup the type
+    # note the the function is used here as a class with the 
+    # verb/message 'type'. It is then set.
+
+Problems
+----
+
+1. Too many brackets. The set function above is too long. In the case of `{5 factorial} + 2` we know that factorial only takes one argument. We should be able to do something with order of preference or something. This is very important if we think of each `{}` block as a lambda. Do we really want to create that many functions. It's going to be slow! 
+   
+2. The type definition syntax still needs revising. It might be an idea to have three parameters for a function type one for the class it belongs to, another for the parameters and the last for return type.
+
+3. There may be a problem of when to eval. In this code: `{dave bob} ifTrue {ham eat} {cheese eat}` We only want to eval the second two if the predicate is true. This means that we have to call eval a lot. Which is bad ~ I think.
+
+    # Bool define! 'ifTrue (Func [Code, Code] Any)
+    def opcet_define(self, true_code, false_code):
+        if self.value:
+          return opect_eval(true_code)
+        else:
+          return opect_eval(false_code)
+
+
+
+    Env set! 'Pair {BaseClass clone}
+    Pair define! 'car   (Any)
+    Pair define! 'cdr   (Any)
+    Pair chmod!  'car   'virtual
+    Pair chmod!  'cdr   'virtual
+
+    Pair define! '~=  (Func [Any] None)
+    Pair set!    '~= |other|
+    {
+      {self cdr} ifNone 
+        {self set! 'cdr {{Pair clone} init other None}}
+        {self set! 'cdr {{self cdr} ~= other}}
+    }
+
+    Point chmod! '+=   'read-only
+    Point chmod! 'str  'read-only
+    Point class-finilize!
+
+
+Compared to Python
+====
+
+    # stack object
+    x = 4
+    Env define! x 4
+
+    # modify a value
+    self.x += 4
+    self mod! 'x {x + 4}
+
+    # list comprehensions
+    [x^2 for x in range(100) if x%2]
+    {0 to 100} ifmap 'x {x%2} {x^2}
+    
+    # slices
+    range(10)[2:5]
+    {0 to 10} slice 2 5
+    
+    # class creation
+    class Dog: pass
+    Env define! 'Dog  {BaseClass clone}
+
+    # class ininstance
+    fido = Dog()
+    Env define! 'fido {Dog clone}
+
