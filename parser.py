@@ -1,4 +1,5 @@
 import StringIO
+from evaluator import Var, Def, Set, Inc, Name, Number, String, Dict, List, Code, Chain
 
 # * Any literals (in quotes) or regexps (==>) can have any amount of
 #   whitespace including none. Note that special statements have at
@@ -43,7 +44,7 @@ protected_names = set("var def inc set".split())
 
 class Parser():
     def __init__(self, tokens):
-        self.tokens = ("LITERAL", "{") + tokens + ("LITERAL", "}")
+        self.tokens = [("LITERAL", "{")] + tokens + [("LITERAL", "}")]
         self.current_token = 0
         self.statements = []
 
@@ -65,7 +66,7 @@ class Parser():
     def is_literal(self, val):
         return self.peek()[0] == "LITERAL" and self.peek()[1] == val
 
-    def is_special(self, val):
+    def is_special(self):
         return self.peek()[0] == "SPECIAL"
 
     def parse(self):
@@ -97,7 +98,6 @@ class Parser():
         else:
             return self.read_chain()
 
-
     def read_chain(self):
         chain = []
 
@@ -107,11 +107,11 @@ class Parser():
             chain.append(self.read_value())
 
         while True:
-            if is_literal("["):
-                chain.append(read_list())
-            elif is_literal("("):
-                chain.append(read_dict())
-            elif is_literal("."):
+            if self.is_literal("["):
+                chain.append(self.read_list())
+            elif self.is_literal("("):
+                chain.append(self.read_dict())
+            elif self.is_literal("."):
                 self.skip_literal(".")
                 chain.append(Name(self.read()[1]))
             else:
@@ -125,9 +125,9 @@ class Parser():
             return self.read_number()
         elif tok[0] == "STRING":
             return self.read_string()
-        elif is_literal("["):
+        elif self.is_literal("["):
             return self.read_list()
-        elif is_literal("("):
+        elif self.is_literal("("):
             return self.read_dict()
         else:
             return self.read_code()
@@ -151,14 +151,14 @@ class Parser():
     def read_list(self):
         self.skip_literal("[")
         ret = []
-        while not is_literal("]"):
+        while not self.is_literal("]"):
             ret.append(self.read_chain())
-            if not is_literal(","):
+            if not self.is_literal(","):
                 break
             else:
                 self.skip_literal(",")
                 continue
-        if not is_literal("]"):
+        if not self.is_literal("]"):
             ret.append(self.read_chain())
         self.skip_literal("]")
         return List(ret)
@@ -166,17 +166,17 @@ class Parser():
     def read_dict(self):
         self.skip_literal("(")
         ret = {}
-        while not is_literal(")"):
+        while not self.is_literal(")"):
             name = self.read_name()
             self.skip_literal("=")
             value = self.read_chain()
             ret[name] = value
-            if not is_literal(","):
+            if not self.is_literal(","):
                 break
             else:
                 self.skip_literal(",")
                 continue
-        if not is_literal(")"):
+        if not self.is_literal(")"):
             name = self.read_name()
             self.skip_literal("=")
             value = self.read_chain()
@@ -187,14 +187,37 @@ class Parser():
     def read_code(self):
         self.skip_literal("{")
         ret = []
-        while not is_literal("}"):
+        while not self.is_literal("}"):
             ret.append(self.read_statement())
-            if not is_literal(";"):
+            if not self.is_literal(";"):
                 break
             else:
                 self.skip_literal(";")
                 continue
-        if not is_literal("}"):
+        if not self.is_literal("}"):
             ret.append(self.read_statement())
         self.skip_literal("}")
         return Code(ret)
+
+
+def test_parser():
+    from lexer import Tokenizer, mockfile
+
+    testlist = """
+# NEXT x;
+# NEXT x.y;
+# NEXT x.y[5][{ inc bob; }, "hello"](x=6);
+""".split("# NEXT")
+
+    print "-"*50
+    for test in testlist:
+        toks = Tokenizer(mockfile(test), False)
+        code = Parser(toks.read_tokens())
+        print test
+        print toks.to_string()
+        print code.read_code().as_string()
+        print "-"*50
+
+
+if __name__ == '__main__':
+    test_parser()

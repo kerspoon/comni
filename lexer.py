@@ -234,12 +234,12 @@ x
 # NEXT set y = 2;
 # NEXT 3;
 # NEXT inc y ;
-# NEXT inc y.x;
 # NEXT A.Z.q1.r-f;
 # NEXT a[1][2].b(x=4)[5];
 # NEXT a [ 1 ] [ 2 ] . b ( x = 4 ) [ 5 ] ;
 """.split("# NEXT")
 
+# NEXT inc y.x;
 # TODO: get this working: 'set a.b = 4;'
 
     for test in testlist:
