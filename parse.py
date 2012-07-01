@@ -1,5 +1,5 @@
 import StringIO
-from evaluator import Var, Def, Set, Inc, Name, Number, String, Dict, List, Code, Chain
+from evaluate import Var, Def, Set, Inc, Name, Number, String, Dict, List, Code, Chain
 
 # * Any literals (in quotes) or regexps (==>) can have any amount of
 #   whitespace including none. Note that special statements have at

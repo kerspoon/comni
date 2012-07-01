@@ -35,8 +35,8 @@ class Statement(object):
     def call(self, this, args, env):
         raise Exception("cannot call: " + self.kind)
 
-    def eval(self, env):
-        raise Exception("cannot eval: " + self.kind)
+    def evaluate(self, env):
+        raise Exception("cannot evaluate: " + self.kind)
 
     def lookup(self, key):
         raise Exception("cannot lookup: " + self.kind)
@@ -54,12 +54,15 @@ class Var(Statement):
         else:
             return "var " + self.name
             
-    def eval(self, env):
-        assert name not in env.data.keys()
+    def evaluate(self, env):
+        assert self.name not in env.data.keys()
         if self.chain:
-            env.data[name] = self.chain.eval(env)
+            res = self.chain.evaluate(env)
+            env.data[self.name] = res
+            return res
         else:
-            env.data[name] = None
+            env.data[self.name] = None
+            return None
 
 
 class Def(Statement):
@@ -71,10 +74,11 @@ class Def(Statement):
     def as_string(self, indent):
         return "def " + self.name + " = " + self.chain.as_string(indent)
 
-    def eval(self, env):
-        assert name not in env.data.keys()
-        env.data[name] = self.chain.eval(env)
-
+    def evaluate(self, env):
+        assert self.name not in env.data.keys()
+        res = self.chain.evaluate(env)
+        env.data[self.name] = res
+        return res
 
 class Set(Statement):
     def __init__(self, name, chain):
@@ -85,9 +89,11 @@ class Set(Statement):
     def as_string(self, indent):
         return "set " + self.name + " = " + self.chain.as_string(indent)
 
-    def eval(self, env):
-        assert name in env.data.keys()
-        env.data[name] = self.chain.eval(env)
+    def evaluate(self, env):
+        assert self.name in env.data.keys()
+        res = self.chain.evaluate(env)
+        env.data[self.name] = res
+        return res
 
 
 class Inc(Statement):
@@ -98,43 +104,43 @@ class Inc(Statement):
     def as_string(self, indent):
         return "inc " + self.name
 
-    def eval(self, env):
-        raise NotImplementedError() # TODO: Inc.eval
+    def evaluate(self, env):
+        raise NotImplementedError() # TODO: Inc.evaluate
 
 
 class Name(Statement):
-    def __init__(self, name):
+    def __init__(self, data):
         super(Name, self).__init__("name")
-        self.name = name # string
+        self.data = data # string
 
     def as_string(self, indent):
-        return self.name
+        return self.data
 
-    def eval(self, env):
-        return env.lookup(self.name)
+    def evaluate(self, env):
+        return env.lookup(self.data)
 
 
 class Number(Statement):
-    def __init__(self, name):
+    def __init__(self, data):
         super(Number, self).__init__("number")
-        self.name = name # integer
+        self.data = int(data) # integer
 
     def as_string(self, indent):
-        return self.name
+        return str(self.data)
 
-    def eval(self, env):
+    def evaluate(self, env):
         return self
 
 
 class String(Statement):
-    def __init__(self, name):
+    def __init__(self, data):
         super(String, self).__init__("string")
-        self.name = name # string
+        self.data = data # string
 
     def as_string(self, indent):
-        return "\"" + self.name + "\""
+        return "\"" + self.data + "\""
 
-    def eval(self, env):
+    def evaluate(self, env):
         return self
 
 
@@ -147,25 +153,31 @@ class Dict(Statement):
         ret = ", ".join(key.as_string(indent) + " = " + val.as_string(indent) for key,val in self.data.items())
         return "(" + ret + ")"
 
-    def eval(self, env):
+    def evaluate(self, env):
         ret = {}
         for key,val in self.data.items():
-            ret[key] = val.eval(env)
+            ret[key] = val.evaluate(env)
         return Dict(ret)
 
     def call(self, this, args, env):
+
         # e.g. (a=1, b=2)[a] --> 1
         # e.g. (a=1, b=2)(x=a) --> 1
         if args.kind == "list":
             val = args.data[0]
             assert val.kind == "name"
-            return self.data[val]
+            return self.data[val.data]
         else:
             assert args.kind == "dict"
             val = args.data["x"]
             assert val.kind == "name"
-            return self.data[val]
+            return self.data[val.data]
 
+    def lookup(self, key):
+        if key in self.data:
+            return self.data[key]
+        assert "_parent" in self.data, "failed lookup of " + key
+        return self.data["_parent"].lookup(key)
 
 class List(Statement):
     def __init__(self, data):
@@ -175,10 +187,11 @@ class List(Statement):
     def as_string(self, indent):
         return "[" + ", ".join(x.as_string(indent) for x in self.data) + "]"
 
-    def eval(self, env):
-        return List([val.eval(env) for val in self.data])
+    def evaluate(self, env):
+        return List([val.evaluate(env) for val in self.data])
 
     def call(self, this, args, env):
+
         # list.call = function(x) { return data[x] }
         # e.g. ["a", "b"][0] --> "a"
         # e.g. ["a", "b"](x=1) --> "b"
@@ -186,12 +199,12 @@ class List(Statement):
         if args.kind == "list":
             val = args.data[0]
             assert val.kind == "number"
-            return self.data[val]
+            return self.data[val.data]
         else:
             assert args.kind == "dict"
             val = args.data["x"]
             assert val.kind == "number"
-            return self.data[val]
+            return self.data[val.data]
 
 
 class Code(Statement):
@@ -213,7 +226,7 @@ class Code(Statement):
         ret += ";\n" + indent + "}"
         return ret
 
-    def eval(self, env):
+    def evaluate(self, env):
         return self
 
     def call(self, this, args, env):
@@ -221,7 +234,8 @@ class Code(Statement):
         # make a new environment with some special entries
         newEnv = Dict({
                 "__parent": env,
-                "__this": this
+                "__this": this,
+                "__args": args
                 })
         newEnv.data["__frame"] = newEnv
         # TODO: add 'this' to newEnv so we dont have to do the gay
@@ -231,13 +245,12 @@ class Code(Statement):
 
             res = None
             for statement in self.statements:
-                res = statement.eval(newEnv)
+                res = statement.evaluate(newEnv)
             return res
 
         else:
             raise NotImplementedError() # TODO: call code with args
         
-
 
 class Chain(Statement):
     def __init__(self, parts):
@@ -252,49 +265,49 @@ class Chain(Statement):
             ret += x.as_string(indent)
         return "".join(ret)
 
-    def eval(self, env):
+    def evaluate(self, env):
 
         # x
         # 5
         # ("y"=9.add[4])
 
         part0 = self.parts[0]
-        val0 = part0.eval(env)
+        val0 = part0.evaluate(env)
         if len(self.parts) == 1:
             return val0
 
-        # x.y             --> x must eval to lookupable
-        # x[y]            --> x must eval to callable
-        # x("y"=9.add[4]) --> x must eval to callable
+        # x.y             --> x must evaluate to lookupable
+        # x[y]            --> x must evaluate to callable
+        # x("y"=9.add[4]) --> x must evaluate to callable
 
         part1 = self.parts[1]
-        if part1.isName():
+        if part1.kind == "name":
             val1 = val0.lookup(part1)
-        elif part1.isList() or part1.isDict():
-            val1 = val0.call(None, part1.eval(env), env)
+        elif part1.kind == "list" or part1.kind == "dict":
+            val1 = val0.call(None, part1.evaluate(env), env)
         else:
             raise "expected name list or dict"
         
         if len(self.parts) == 2:
             return val1
 
-        # x.y.z        --> x and x.y must eval to lookupable
-        # next.eq[":"] --> next must eval to lookupable, nex.eq must eval to callable
-        # 4.add[7]     --> val1 => eval(4.add) => code
+        # x.y.z        --> x and x.y must evaluate to lookupable
+        # next.eq[":"] --> next must evaluate to lookupable, nex.eq must evaluate to callable
+        # 4.add[7]     --> val1 => evaluate(4.add) => code
         # x[2][7]      --> 
 
         part2 = self.parts[2]
-        if part2.isName():
+        if part2.kind == "name":
             val2 = val1.lookup(part2)
-        elif part2.isList() or part2.isDict():
-            val2 = val1.call(val0, part2.eval(base), env)
+        elif part2.kind == "list" or part2.kind == "dict":
+            val2 = val1.call(val0, part2.evaluate(base), env)
         else:
             raise "expected name list or dict"
 
         if len(self.parts) == 3:
             return val2
 
-        raise NotImplementedError() # TODO: eval long chains
+        raise NotImplementedError() # TODO: evaluate long chains
 
 
 def test_evaluator():
@@ -303,6 +316,10 @@ def test_evaluator():
 
     test_list = """
 # NEXT 4;
+# NEXT def x = 4; x;
+# NEXT def x = ["a", "b"]; x;
+# NEXT def x = ["a", "b"]; x[0];
+# NEXT ["a", "b"][0];
 """.split("# NEXT")
 
     print "-"*50
@@ -316,9 +333,16 @@ def test_evaluator():
         code = parser.read_all()
         codeString = parser.as_string()
 
+        env = Dict({Name("y"): Number("7")})
+        result = code.call(None, None, env)
+
         print inputString.strip()
         print tokenString
         print codeString
+        if result is not None:
+            print result.as_string("")
+        else:
+            print None
         print "-"*50
 
 
