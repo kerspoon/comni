@@ -14,14 +14,9 @@ from evaluate import Var, Def, Set, Inc, Name, Number, String, Dict, List, Code,
 #     "inc" whitespace lookup
 #     chain
 #
-# lookup ::=
-#     name ("." name)*
-#
-# chain ::=
-#     (name | value) (list | dict | ("." name) )* 
-#
-# value ::= 
-#     num | string | dict | list | code
+# lookup ::= name ("." name)*
+# chain  ::= (name | value) (list | dict | ("." name) )* 
+# value  ::= num | string | dict | list | code
 # 
 # name   ==> [A-Za-z][A-Za-z_0-9\-]* # cannot be: var, def, set, inc
 # num    ==> -?[0-9]+(\.[0-9]+)?
@@ -36,8 +31,12 @@ from evaluate import Var, Def, Set, Inc, Name, Number, String, Dict, List, Code,
 #     "(" (string "=" chain ",")* (string "=" chain)? ")"
 #
 # code ::=
-#     "{" "}"
-#     "{" (statement ";")* statement? "}"
+#     args? "{" "}"
+#     args? "{" (statement ";")* statement? "}"
+# 
+# args ::=
+#     "!" "[" "]"
+#     "!" "[" (name ",")* name? "]"
 #
 
 protected_names = set("var def inc set".split())
@@ -78,9 +77,6 @@ class Parser():
 
     def is_special(self):
         return self.peek()[0] == "SPECIAL"
-
-    def parse(self):
-        return self.read_code()
 
     def read_statement(self):
         if self.is_special():
@@ -158,20 +154,31 @@ class Parser():
         assert tok[0] == "STRING"
         return String(tok[1])
 
-    def read_list(self):
+    def read_list(self, names_only = False):
         self.skip_literal("[")
         ret = []
         while not self.is_literal("]"):
-            ret.append(self.read_chain())
+            if names_only:
+                ret.append(self.read_name().data)
+            else:
+                ret.append(self.read_chain())
             if not self.is_literal(","):
                 break
             else:
                 self.skip_literal(",")
                 continue
+
         if not self.is_literal("]"):
-            ret.append(self.read_chain())
+            if names_only:
+                ret.append(self.read_name().data)
+            else:
+                ret.append(self.read_chain())
         self.skip_literal("]")
-        return List(ret)
+
+        if names_only:
+            return ret
+        else:
+            return List(ret)
 
     def read_dict(self):
         self.skip_literal("(")
@@ -195,6 +202,13 @@ class Parser():
         return Dict(ret)
 
     def read_code(self):
+        
+        if self.is_literal("!"):
+            self.skip_literal("!")
+            args = self.read_list(True)
+        else:
+            args = None
+            
         self.skip_literal("{")
         ret = []
         while not self.is_literal("}"):
@@ -207,7 +221,7 @@ class Parser():
         if not self.is_literal("}"):
             ret.append(self.read_statement())
         self.skip_literal("}")
-        return Code(ret)
+        return Code(ret, args)
 
 
 def test_parser():
@@ -218,6 +232,8 @@ def test_parser():
 # NEXT x.y;
 # NEXT x.y[5][{ inc bob; }, "hello"](x=6);
 # NEXT (a=1, b=2)(x=a);
+# NEXT ![x] { 4;};
+# NEXT ![x, y] { x;};
 """.split("# NEXT")
 
     print "-"*50

@@ -208,19 +208,21 @@ class List(Statement):
 
 
 class Code(Statement):
-    def __init__(self, statements, arg_list=None, arg_rest=None):
+    def __init__(self, statements, args=None):
         super(Code, self).__init__("code")
         self.statements = statements # [statement]
-        self.arg_list = arg_list     # [name]
-        self.arg_rest = arg_rest     # name 
+        self.args = args     # [name]
 
     def as_string(self, indent):
-        if self.arg_list is None and self.arg_rest is None:
-            if len(self.statements) == 0:
-                return "{}"
-            ret = "{\n" + indent + "  "
+        ret = ""
+        if self.args is not None:
+            ret += "![" + ", ".join(self.args) + "]"
+
+        if len(self.statements) == 0:
+            return "{}"
         else:
-            raise NotImplementedError() # TODO: print code with args
+            ret += "{\n" + indent + "  "
+            
         string_args = [x.as_string(indent + "  ") for x in self.statements]
         ret += (";\n" + indent + "  ").join(string_args)
         ret += ";\n" + indent + "}"
@@ -241,7 +243,7 @@ class Code(Statement):
         # TODO: add 'this' to newEnv so we dont have to do the gay
         # python thing of self.x everywhere
 
-        if self.arg_list is None and self.arg_rest is None:
+        if self.args is None:
 
             res = None
             for statement in self.statements:

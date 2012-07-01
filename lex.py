@@ -161,6 +161,11 @@ class Tokenizer():
             raise "TODO: implement datatypes"
 
     def read_code_block(self):
+        if (self.stream.peek(1) == "!"):
+            self.read_literal("!")
+            self.skip_whitespace()
+            self.read_list(True)
+            self.skip_whitespace()
         self.read_literal("{")
         self.skip_whitespace()
         while(True):
@@ -196,14 +201,17 @@ class Tokenizer():
                 self.read_literal(")")
                 return
 
-    def read_list(self):
+    def read_list(self, names_only = False):
         self.read_literal("[")
         self.skip_whitespace()
         while(True):
             if (self.stream.peek(1) == "]"):
                 self.read_literal("]")
                 return
-            self.read_chain_or_value()
+            if names_only:
+                self.read_name()
+            else:
+                self.read_chain_or_value()
             self.skip_whitespace()
             if (self.stream.peek(1) == ","):
                 self.read_literal(",")
@@ -213,11 +221,8 @@ class Tokenizer():
                 return
 
 
-
-
 def mockfile(text):
     return PeekableStream(StringIO.StringIO(text))
-
 
 def test_tokenizer():
 
@@ -244,6 +249,9 @@ x
 # NEXT A.Z.q1.r-f;
 # NEXT a[1][2].b(x=4)[5];
 # NEXT a [ 1 ] [ 2 ] . b ( x = 4 ) [ 5 ] ;
+# NEXT ![x, y] {x.plus[y];};
+# NEXT ![x, y] {x.plus[y]};
+# NEXT !  [   ] {  4  } ;
 """.split("# NEXT")
 
 # NEXT inc y.x;
