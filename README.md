@@ -1,4 +1,24 @@
 
+Comni
+====
+
+Comni is a programming language. 
+
+It is in somy ways quite similar to javascript and lua. The goals are as follows:
+
+- A very simple syntax but more expressive than lisp.
+- Supports higher order programing.
+- As little concepts as possible.
+
+The third point may need explaining. I have tried to unify things like prototypes/class definitions and objects into a single thing: the dictionary. The environment is also a dictionary and can be used like one. 
+
+This means environment is a first class object. The return value of a function can be a dictionary of the items defined in that code block. This is how we do object oriented programming in comni.
+
+There is also no difference between a file and a block of code and a block of code is simply a function without arguments. Before we get too bogged down in the philosophy lets start the tutorial...
+
+Tutorial
+====
+
 There are six kinds of statements, these are:
 
 1. Variable Definition ~ "var"
@@ -308,6 +328,11 @@ Scope
     y;        # ???
     z[];      # ???
 
+**TODO:** What about here:
+
+    var x = 4.add;  #
+    x[7];           # does this somehow know it belonged to '4' before
+
 
 Creating Functions and Classes
 ----
@@ -324,7 +349,7 @@ With two arguemnts:
       x.Add[y];
     };
 
-With zero or more arguemnts:
+With zero or more arguments:
 
     def AddAll = ![&args]{
       var result = 0;
@@ -336,6 +361,29 @@ With zero or more arguemnts:
 
 ----------------------------------------------------------------------
 
-The first things that happens with the code is that it is parsed to determine datatypes and structures.
+Progress
+====
 
-    var X
+The lexer, parser and evaluator basically work and there is a few predefined functions. The main problem is scope. We need to think about the cases (in *scope* above) and how they are to be solved. 
+
+1. Think about scope issues.
+1. Add a load of built-in functions (in a new file).
+1. Create a built-in type for reading and writing files.
+1. Allow comments in code (extend lexer).
+1. Write Inc.evaluate[].
+
+Low Priority
+----
+
+- need to deal with non integer numbers
+- needs to deal with escaping '"' with '\'
+- needs to deal with def `a.b = 4;`
+- in special forms if the chain is the value of kind code then save the name in that code for better debugging.
+- include 'this' in new environment of Code.call
+- work out how to evaluate long chains
+
+Very Low Priority
+----
+
+- implement data types and types checking
+- create emacs mode

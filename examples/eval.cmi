@@ -1,0 +1,43 @@
+
+
+
+def Statement = {
+  var kind;
+  def str  = {Error["not implemented"]};
+  def call = {Error["not implemented"]};
+  def eval = {Error["not implemented"]};
+  def get  = {Error["not implemented"]};
+  frame;
+}[];
+
+def Var = {
+  inc Statement;
+  set kind = "var";
+  var name;
+  var chain;
+
+  def noChain = chain.kind.equal["none"];
+
+  set str = ![indent] {
+    noChain.ifTrue[{
+      ["var ", name, " = ", chain.str[indent]].join[""];
+    },{
+      ["var ", name].join[""];
+    }];
+  };
+
+  set eval = ![env] {
+    env.has[name].ifTrue[{
+      Error[""];
+    }];
+
+    noChain.ifTrue[{
+      env.add[name, chain.eval[env]];
+    },{
+      env.add[name, none];
+    }];
+  };
+
+  frame;
+}[];
+
