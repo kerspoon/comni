@@ -202,7 +202,12 @@ class Code(Statement):
         self.arg_rest = arg_rest     # name 
 
     def as_string(self, indent):
-        ret = "{\n" + indent + "  "
+        if self.arg_list is None and self.arg_rest is None:
+            if len(self.statements) == 0:
+                return "{}"
+            ret = "{\n" + indent + "  "
+        else:
+            raise NotImplementedError() # TODO: print code with args
         string_args = [x.as_string(indent + "  ") for x in self.statements]
         ret += (";\n" + indent + "  ").join(string_args)
         ret += ";\n" + indent + "}"
@@ -211,8 +216,27 @@ class Code(Statement):
     def eval(self, env):
         return self
 
-    def call(self):
-        raise NotImplementedError()
+    def call(self, this, args, env):
+
+        # make a new environment with some special entries
+        newEnv = Dict({
+                "__parent": env,
+                "__this": this
+                })
+        newEnv.data["__frame"] = newEnv
+        # TODO: add 'this' to newEnv so we dont have to do the gay
+        # python thing of self.x everywhere
+
+        if self.arg_list is None and self.arg_rest is None:
+
+            res = None
+            for statement in self.statements:
+                res = statement.eval(newEnv)
+            return res
+
+        else:
+            raise NotImplementedError() # TODO: call code with args
+        
 
 
 class Chain(Statement):
@@ -270,5 +294,33 @@ class Chain(Statement):
         if len(self.parts) == 3:
             return val2
 
-        assert "not implemented" # TODO: eval long chains
+        raise NotImplementedError() # TODO: eval long chains
 
+
+def test_evaluator():
+    from parse import Parser
+    from lex import Tokenizer, mockfile
+
+    test_list = """
+# NEXT 4;
+""".split("# NEXT")
+
+    print "-"*50
+    for inputString in test_list:
+
+        tokenizer = Tokenizer(mockfile(inputString), False)
+        tokenList = tokenizer.read_all()
+        tokenString = tokenizer.as_string()
+
+        parser = Parser(tokenList)
+        code = parser.read_all()
+        codeString = parser.as_string()
+
+        print inputString.strip()
+        print tokenString
+        print codeString
+        print "-"*50
+
+
+if __name__ == '__main__':
+    test_evaluator()

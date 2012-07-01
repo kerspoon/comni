@@ -46,7 +46,17 @@ class Parser():
     def __init__(self, tokens):
         self.tokens = [("LITERAL", "{")] + tokens + [("LITERAL", "}")]
         self.current_token = 0
-        self.statements = []
+        self.code = None
+
+    def read_all(self):
+        if self.code is None:
+            self.code = self.read_code()
+        return self.code
+
+    def as_string(self):
+        if self.code is None:
+            self.read_all()
+        return self.code.as_string("")
 
     def read(self):
         self.current_token += 1
@@ -201,9 +211,9 @@ class Parser():
 
 
 def test_parser():
-    from lexer import Tokenizer, mockfile
+    from lex import Tokenizer, mockfile
 
-    testlist = """
+    test_list = """
 # NEXT x;
 # NEXT x.y;
 # NEXT x.y[5][{ inc bob; }, "hello"](x=6);
@@ -211,12 +221,19 @@ def test_parser():
 """.split("# NEXT")
 
     print "-"*50
-    for test in testlist:
-        toks = Tokenizer(mockfile(test), False)
-        code = Parser(toks.read_tokens())
-        print test
-        print toks.to_string()
-        print code.read_code().as_string("")
+    for inputString in test_list:
+
+        tokenizer = Tokenizer(mockfile(inputString), False)
+        tokenList = tokenizer.read_all()
+        tokenString = tokenizer.as_string()
+
+        parser = Parser(tokenList)
+        code = parser.read_all()
+        codeString = parser.as_string()
+        
+        print inputString.strip()
+        print tokenString
+        print codeString
         print "-"*50
 
 

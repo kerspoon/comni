@@ -1,8 +1,9 @@
 import StringIO
+import string
 
-whitespace = set("\n\t ")
-number_chars = set("1234567890-")
-name_start_chars = set("qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM")
+whitespace = set(string.whitespace)
+number_chars = set(string.digits + "-")
+name_start_chars = set(string.ascii_letters)
 name_chars = name_start_chars | number_chars | set("_")
 value_start_chars = number_chars | set("\"[(!{:")
 
@@ -24,10 +25,34 @@ class PeekableStream():
 
 class Tokenizer():
 
+    # ---- public functions ----
+
     def __init__(self, stream, debug):
         self.stream = stream
         self.tokens = []
         self.debug = debug
+
+    def read_all(self):
+        self.skip_whitespace()
+        while(self.stream.peek(1)):
+            self.read_statement()
+            self.skip_whitespace()
+            self.read_literal(";")
+            self.skip_whitespace()
+        return self.tokens
+
+    def as_string(self):
+        if len(self.tokens) == 0:
+            self.read_all()
+        res = []
+        for tok in self.tokens:
+            if tok[0] == "STRING":
+                res.append("\"" + tok[1] + "\"")
+            else:
+                res.append(tok[1])
+        return " ".join(res)
+
+    # ---- private functions ----
 
     def skip_whitespace(self):
         # TODO: deal with comments
@@ -74,14 +99,6 @@ class Tokenizer():
         self.tokens.append(("STRING", "".join(tmp)))
         if self.debug: print self.tokens
 
-    def read_tokens(self):
-        self.skip_whitespace()
-        while(self.stream.peek(1)):
-            self.read_statement()
-            self.skip_whitespace()
-            self.read_literal(";")
-            self.skip_whitespace()
-        return self.tokens
         
     def read_statement(self):
         self.skip_whitespace()
@@ -195,16 +212,6 @@ class Tokenizer():
                 self.read_literal("]")
                 return
 
-    def to_string(self):
-        if len(self.tokens) == 0:
-            self.read_tokens()
-        res = []
-        for tok in self.tokens:
-            if tok[0] == "STRING":
-                res.append("\"" + tok[1] + "\"")
-            else:
-                res.append(tok[1])
-        return " ".join(res)
 
 
 
@@ -214,7 +221,7 @@ def mockfile(text):
 
 def test_tokenizer():
 
-    testlist = """
+    test_list = """
 # NEXT (Z=4).Z;
 # NEXT "boo".startswith["b"];
 # NEXT [config.Get["shoe-size"]];
@@ -242,11 +249,18 @@ x
 # NEXT inc y.x;
 # TODO: get this working: 'set a.b = 4;'
 
-    for test in testlist:
-        toks = Tokenizer(mockfile(test), False)
-        print toks.to_string()
+    print "-"*50
+    for inputString in test_list:
+
+        tokenizer = Tokenizer(mockfile(inputString), False)
+        tokenList = tokenizer.read_all()
+        tokenString = tokenizer.as_string()
+        
+        print inputString.strip()
+        print tokenString
         # print toks.tokens
-        # print "-"*50
+        print "-"*50
+
 
 if __name__ == '__main__':
     test_tokenizer()
