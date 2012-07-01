@@ -215,7 +215,7 @@ def test_parser():
         code = Parser(toks.read_tokens())
         print test
         print toks.to_string()
-        print code.read_code().as_string()
+        print code.read_code().as_string("")
         print "-"*50
 
 

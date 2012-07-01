@@ -27,7 +27,10 @@
 class Statement(object):
     def __init__(self, kind):
         super(Statement, self).__init__()
-        self.kind = kind
+        self.kind = kind # string
+
+    def as_string(self, indent):
+        raise Exception("cannot stringify: " + self.kind)
 
     def call(self, this, args, env):
         raise Exception("cannot call: " + self.kind)
@@ -42,12 +45,12 @@ class Statement(object):
 class Var(Statement):
     def __init__(self, name, chain):
         super(Var, self).__init__("var")
-        self.name = name
-        self.chain = chain
+        self.name = name   # chain
+        self.chain = chain # chain | none
 
-    def as_string(self):
+    def as_string(self, indent):
         if self.chain:
-            return "var " + self.name + " = " + self.chain.to_string()
+            return "var " + self.name + " = " + self.chain.as_string(indent)
         else:
             return "var " + self.name
             
@@ -58,11 +61,11 @@ class Var(Statement):
 class Def(Statement):
     def __init__(self, name, chain):
         super(Def, self).__init__("def")
-        self.name = name
-        self.chain = chain
+        self.name = name   # chain
+        self.chain = chain # chain
 
-    def as_string(self):
-        return "def " + self.name + " = " + self.chain.to_string()
+    def as_string(self, indent):
+        return "def " + self.name + " = " + self.chain.as_string(indent)
 
     def eval(self, env):
         raise NotImplementedError()
@@ -71,11 +74,11 @@ class Def(Statement):
 class Set(Statement):
     def __init__(self, name, chain):
         super(Set, self).__init__("set")
-        self.name = name
-        self.chain = chain
+        self.name = name   # name
+        self.chain = chain # chain
 
-    def as_string(self):
-        return "set " + self.name + " = " + self.chain.to_string()
+    def as_string(self, indent):
+        return "set " + self.name + " = " + self.chain.as_string(indent)
 
     def eval(self, env):
         raise NotImplementedError()
@@ -84,9 +87,9 @@ class Set(Statement):
 class Inc(Statement):
     def __init__(self, name):
         super(Inc, self).__init__("inc")
-        self.name = name
+        self.name = name # name
 
-    def as_string(self):
+    def as_string(self, indent):
         return "inc " + self.name
 
     def eval(self, env):
@@ -96,9 +99,9 @@ class Inc(Statement):
 class Name(Statement):
     def __init__(self, name):
         super(Name, self).__init__("name")
-        self.name = name
+        self.name = name # string
 
-    def as_string(self):
+    def as_string(self, indent):
         return self.name
 
     def eval(self, env):
@@ -108,9 +111,9 @@ class Name(Statement):
 class Number(Statement):
     def __init__(self, name):
         super(Number, self).__init__("number")
-        self.name = name
+        self.name = name # integer
 
-    def as_string(self):
+    def as_string(self, indent):
         return self.name
 
     def eval(self, env):
@@ -120,9 +123,9 @@ class Number(Statement):
 class String(Statement):
     def __init__(self, name):
         super(String, self).__init__("string")
-        self.name = name
+        self.name = name # string
 
-    def as_string(self):
+    def as_string(self, indent):
         return "\"" + self.name + "\""
 
     def eval(self, env):
@@ -132,10 +135,10 @@ class String(Statement):
 class Dict(Statement):
     def __init__(self, data):
         super(Dict, self).__init__("dict")
-        self.data = data
+        self.data = data # {name => chain}
 
-    def as_string(self):
-        ret = ", ".join(key.as_string() + " = " + val.as_string() for key,val in self.data.items())
+    def as_string(self, indent):
+        ret = ", ".join(key.as_string(indent) + " = " + val.as_string(indent) for key,val in self.data.items())
         return "(" + ret + ")"
 
     def eval(self, env):
@@ -153,10 +156,10 @@ class Dict(Statement):
 class List(Statement):
     def __init__(self, data):
         super(List, self).__init__("list")
-        self.data = data
+        self.data = data  # [chain]
 
-    def as_string(self):
-        return "[" + ", ".join(x.as_string() for x in self.data) + "]"
+    def as_string(self, indent):
+        return "[" + ", ".join(x.as_string(indent) for x in self.data) + "]"
 
     def eval(self, env):
         return List([val.eval(env) for val in self.data])
@@ -168,12 +171,18 @@ class List(Statement):
 
 
 class Code(Statement):
-    def __init__(self, statements):
+    def __init__(self, statements, arg_list=None, arg_rest=None):
         super(Code, self).__init__("code")
-        self.statements = statements
+        self.statements = statements # [statement]
+        self.arg_list = arg_list     # [name]
+        self.arg_rest = arg_rest     # name 
 
-    def as_string(self):
-        return "{\n" + ";\n".join(x.as_string() for x in self.statements) + ";\n}"
+    def as_string(self, indent):
+        ret = "{\n" + indent + "  "
+        string_args = [x.as_string(indent + "  ") for x in self.statements]
+        ret += (";\n" + indent + "  ").join(string_args)
+        ret += ";\n" + indent + "}"
+        return ret
 
     def eval(self, env):
         return self
@@ -185,15 +194,14 @@ class Code(Statement):
 class Chain(Statement):
     def __init__(self, parts):
         super(Chain, self).__init__("chain")
-        # list of name list or dict
-        self.parts = parts
+        self.parts = parts # value|vame + [name|list|dict]
 
-    def as_string(self):
-        ret = [self.parts[0].as_string()]
+    def as_string(self, indent):
+        ret = [self.parts[0].as_string(indent)]
         for x in self.parts[1:]:
             if x.kind == "name":
                 ret += "."
-            ret += x.as_string()
+            ret += x.as_string(indent)
         return "".join(ret)
 
     def eval(self, env):
