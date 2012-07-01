@@ -207,6 +207,7 @@ def test_parser():
 # NEXT x;
 # NEXT x.y;
 # NEXT x.y[5][{ inc bob; }, "hello"](x=6);
+# NEXT (a=1, b=2)(x=a);
 """.split("# NEXT")
 
     print "-"*50

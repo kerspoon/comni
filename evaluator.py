@@ -55,7 +55,11 @@ class Var(Statement):
             return "var " + self.name
             
     def eval(self, env):
-        raise NotImplementedError()
+        assert name not in env.data.keys()
+        if self.chain:
+            env.data[name] = self.chain.eval(env)
+        else:
+            env.data[name] = None
 
 
 class Def(Statement):
@@ -68,7 +72,8 @@ class Def(Statement):
         return "def " + self.name + " = " + self.chain.as_string(indent)
 
     def eval(self, env):
-        raise NotImplementedError()
+        assert name not in env.data.keys()
+        env.data[name] = self.chain.eval(env)
 
 
 class Set(Statement):
@@ -81,7 +86,8 @@ class Set(Statement):
         return "set " + self.name + " = " + self.chain.as_string(indent)
 
     def eval(self, env):
-        raise NotImplementedError()
+        assert name in env.data.keys()
+        env.data[name] = self.chain.eval(env)
 
 
 class Inc(Statement):
@@ -93,7 +99,7 @@ class Inc(Statement):
         return "inc " + self.name
 
     def eval(self, env):
-        raise NotImplementedError()
+        raise NotImplementedError() # TODO: Inc.eval
 
 
 class Name(Statement):
@@ -147,10 +153,18 @@ class Dict(Statement):
             ret[key] = val.eval(env)
         return Dict(ret)
 
-    def call(self):
-        # get the args[0] element of it
-        # return self.data[args[0]]
-        raise NotImplementedError()
+    def call(self, this, args, env):
+        # e.g. (a=1, b=2)[a] --> 1
+        # e.g. (a=1, b=2)(x=a) --> 1
+        if args.kind == "list":
+            val = args.data[0]
+            assert val.kind == "name"
+            return self.data[val]
+        else:
+            assert args.kind == "dict"
+            val = args.data["x"]
+            assert val.kind == "name"
+            return self.data[val]
 
 
 class List(Statement):
@@ -164,10 +178,20 @@ class List(Statement):
     def eval(self, env):
         return List([val.eval(env) for val in self.data])
 
-    def call(self):
-        # get the args[0] element of it
-        # return self.data[args[0]]
-        raise NotImplementedError()
+    def call(self, this, args, env):
+        # list.call = function(x) { return data[x] }
+        # e.g. ["a", "b"][0] --> "a"
+        # e.g. ["a", "b"](x=1) --> "b"
+
+        if args.kind == "list":
+            val = args.data[0]
+            assert val.kind == "number"
+            return self.data[val]
+        else:
+            assert args.kind == "dict"
+            val = args.data["x"]
+            assert val.kind == "number"
+            return self.data[val]
 
 
 class Code(Statement):
