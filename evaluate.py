@@ -208,14 +208,14 @@ class List(Statement):
 
 
 class Code(Statement):
-    def __init__(self, statements, args=None):
+    def __init__(self, statements, args):
         super(Code, self).__init__("code")
         self.statements = statements # [statement]
         self.args = args     # [name]
 
     def as_string(self, indent):
         ret = ""
-        if self.args is not None:
+        if len(self.args) != 0:
             ret += "![" + ", ".join(self.args) + "]"
 
         if len(self.statements) == 0:
@@ -232,27 +232,36 @@ class Code(Statement):
         return self
 
     def call(self, this, args, env):
+        assert len(args.data) == len(self.args)
 
         # make a new environment with some special entries
+        # TODO: special __x entries are wrong type for comni
         newEnv = Dict({
                 "__parent": env,
                 "__this": this,
                 "__args": args
                 })
         newEnv.data["__frame"] = newEnv
+
         # TODO: add 'this' to newEnv so we dont have to do the gay
         # python thing of self.x everywhere
 
-        if self.args is None:
+        if self.args is not None:
+            # self.args = ["x", "y"]
+            # args = List([Number(1), Chain([Number(4), Name("plus"), List([Number(3)])])])
+            #      => [ 1, 4.plus[3] ]
 
-            res = None
-            for statement in self.statements:
-                res = statement.evaluate(newEnv)
-            return res
+            arg_vals = [x.evaluate(env) for x in args.data]
+            newEnv.data["__vals"] = arg_vals
 
-        else:
-            raise NotImplementedError() # TODO: call code with args
-        
+            for n,arg in enumerate(self.args):
+                newEnv.data[arg] = arg_vals[n]
+
+        res = None
+        for statement in self.statements:
+            res = statement.evaluate(newEnv)
+        return res
+    
 
 class Chain(Statement):
     def __init__(self, parts):
@@ -322,25 +331,37 @@ def test_evaluator():
 # NEXT def x = ["a", "b"]; x;
 # NEXT def x = ["a", "b"]; x[0];
 # NEXT ["a", "b"][0];
+# NEXT {4;}[];
+# NEXT ![x]{x;};
+# NEXT ![x]{x;}[5];
+# NEXT 
+def x = 6;
+def ret4 = ![x]{
+  set x = 4;
+  x;
+};
+set x = 9;
+ret4[x];
+x;
 """.split("# NEXT")
 
     print "-"*50
     for inputString in test_list:
+        print inputString.strip()
 
         tokenizer = Tokenizer(mockfile(inputString), False)
         tokenList = tokenizer.read_all()
         tokenString = tokenizer.as_string()
+        print tokenString
 
         parser = Parser(tokenList)
         code = parser.read_all()
         codeString = parser.as_string()
+        print codeString
 
         env = Dict({Name("y"): Number("7")})
-        result = code.call(None, None, env)
+        result = code.call(None, List([]), env)
 
-        print inputString.strip()
-        print tokenString
-        print codeString
         if result is not None:
             print result.as_string("")
         else:

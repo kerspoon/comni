@@ -207,7 +207,7 @@ class Parser():
             self.skip_literal("!")
             args = self.read_list(True)
         else:
-            args = None
+            args = []
             
         self.skip_literal("{")
         ret = []
