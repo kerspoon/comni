@@ -25,6 +25,8 @@
 
 
 class Statement(object):
+    builtins = {} # global data
+
     def __init__(self, kind):
         super(Statement, self).__init__()
         self.kind = kind # string
@@ -39,8 +41,9 @@ class Statement(object):
         raise Exception("cannot evaluate: " + self.kind)
 
     def lookup(self, key):
-        raise Exception("cannot lookup: " + self.kind)
-
+        if self.kind not in Statement.builtins:
+            raise Exception("cannot lookup: " + self.kind)
+        return Statement.builtins[self.kind][key.data]
 
 class Var(Statement):
     def __init__(self, name, chain):
@@ -131,7 +134,6 @@ class Number(Statement):
     def evaluate(self, env):
         return self
 
-
 class String(Statement):
     def __init__(self, data):
         super(String, self).__init__("string")
@@ -206,6 +208,24 @@ class List(Statement):
             assert val.kind == "number"
             return self.data[val.data]
 
+class Function(Statement):
+    def __init__(self, func, args, name):
+        super(Function, self).__init__("function")
+        self.func = func     # python function
+        self.args = args     # [name]
+        self.name = name     # string
+
+    def as_string(self, indent):
+        return "_" + self.kind + "_" + self.name
+
+    def call(self, this, args, env):
+        assert len(args.data) == len(self.args)
+
+        args_dict = {}
+        for n,arg in enumerate(self.args):
+            args_dict[arg] = args.data[n]
+
+        return self.func(this, args_dict, env)
 
 class Code(Statement):
     def __init__(self, statements, args):
@@ -277,8 +297,8 @@ class Chain(Statement):
         return "".join(ret)
 
     def evaluate(self, env):
-
-        # x
+ 
+       # x
         # 5
         # ("y"=9.add[4])
 
@@ -311,7 +331,7 @@ class Chain(Statement):
         if part2.kind == "name":
             val2 = val1.lookup(part2)
         elif part2.kind == "list" or part2.kind == "dict":
-            val2 = val1.call(val0, part2.evaluate(base), env)
+            val2 = val1.call(val0, part2.evaluate(env), env)
         else:
             raise "expected name list or dict"
 
@@ -320,6 +340,21 @@ class Chain(Statement):
 
         raise NotImplementedError() # TODO: evaluate long chains
 
+
+
+def number_asString(this, args, env):
+    return String(this.as_string(""))
+
+def number_add(this, args, env):
+    return Number(this.data + args["x"].data)
+
+def make_builtins():
+    Statement.builtins["number"] = {
+        "asString": Function(number_asString, [], "asString"),
+        "add": Function(number_add, ["x"], "add")
+        }
+
+make_builtins()
 
 def test_evaluator():
     from parse import Parser
@@ -343,7 +378,19 @@ def ret4 = ![x]{
 set x = 9;
 ret4[x];
 x;
+# NEXT 4.asString;
+# NEXT 4.asString[];
+# NEXT 4.add[2];
+
+# NEXT 
+
+def add4 = {
+  ![y]{4.add[y]}
+};
+add4[][1];
+
 """.split("# NEXT")
+
 
     print "-"*50
     for inputString in test_list:
