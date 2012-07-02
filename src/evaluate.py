@@ -1,3 +1,4 @@
+import collections
 
 # var X = 4  ; Var(Name("X"), Num(4))            # ==> adds 'x = 4' to env
 # X          ; Chain([Name("X")])                # ==> 4
@@ -29,7 +30,7 @@ class Statement(object):
 
     def __init__(self, kind):
         super(Statement, self).__init__()
-        self.kind = kind # string
+        self.kind = kind # name
 
     def as_string(self, indent):
         raise Exception("cannot stringify: " + self.kind)
@@ -45,10 +46,11 @@ class Statement(object):
             raise Exception("cannot lookup: " + self.kind)
         return Statement.builtins[self.kind][key.data]
 
+
 class Var(Statement):
     def __init__(self, name, chain):
         super(Var, self).__init__("var")
-        self.name = name   # chain
+        self.name = name   # name
         self.chain = chain # chain | none
 
     def as_string(self, indent):
@@ -58,30 +60,31 @@ class Var(Statement):
             return "var " + self.name
             
     def evaluate(self, env):
-        assert self.name not in env.data.keys()
+        assert self.name not in env
         if self.chain:
             res = self.chain.evaluate(env)
-            env.data[self.name] = res
+            env[self.name] = res
             return res
         else:
-            env.data[self.name] = None
+            env[self.name] = Name("nil")
             return None
 
 
 class Def(Statement):
     def __init__(self, name, chain):
         super(Def, self).__init__("def")
-        self.name = name   # chain
+        self.name = name   # name
         self.chain = chain # chain
 
     def as_string(self, indent):
         return "def " + self.name + " = " + self.chain.as_string(indent)
 
     def evaluate(self, env):
-        assert self.name not in env.data.keys()
+        assert self.name not in env
         res = self.chain.evaluate(env)
-        env.data[self.name] = res
+        env[self.name] = res
         return res
+
 
 class Set(Statement):
     def __init__(self, name, chain):
@@ -93,9 +96,9 @@ class Set(Statement):
         return "set " + self.name + " = " + self.chain.as_string(indent)
 
     def evaluate(self, env):
-        assert self.name in env.data.keys()
+        assert self.name in env
         res = self.chain.evaluate(env)
-        env.data[self.name] = res
+        env[self.name] = res
         return res
 
 
@@ -134,6 +137,7 @@ class Number(Statement):
     def evaluate(self, env):
         return self
 
+
 class String(Statement):
     def __init__(self, data):
         super(String, self).__init__("string")
@@ -149,37 +153,55 @@ class String(Statement):
 class Dict(Statement):
     def __init__(self, data):
         super(Dict, self).__init__("dict")
-        self.data = data # {name => chain}
+        for key in data:
+            assert isinstance(key, str), str(key) + key.data
+        self.items = data # {name => chain}
 
     def as_string(self, indent):
-        ret = ", ".join(key.as_string(indent) + " = " + val.as_string(indent) for key,val in self.data.items())
+        ret = ", ".join(key + " = " + val.as_string(indent) for key,val in self.items.items())
         return "(" + ret + ")"
 
     def evaluate(self, env):
         ret = {}
-        for key,val in self.data.items():
+        for key,val in self.items.items():
             ret[key] = val.evaluate(env)
         return Dict(ret)
 
     def call(self, this, args, env):
-
         # e.g. (a=1, b=2)[a] --> 1
         # e.g. (a=1, b=2)(x=a) --> 1
         if args.kind == "list":
             val = args.data[0]
             assert val.kind == "name"
-            return self.data[val.data]
+            return self[val.data]
         else:
             assert args.kind == "dict"
-            val = args.data["x"]
+            val = args["x"]
             assert val.kind == "name"
-            return self.data[val.data]
+            return self[val.data]
 
     def lookup(self, key):
-        if key in self.data:
-            return self.data[key]
-        assert "_parent" in self.data, "failed lookup of " + key
-        return self.data["_parent"].lookup(key)
+        assert isinstance(key, str)
+        if key in self.items:
+            return self[key]
+        assert "parent" in self.items, "failed lookup of " + key
+        return self["parent"].lookup(key)
+
+    def __getitem__(self, key):
+        return self.items[key]
+
+    def __setitem__(self, key, value):
+        assert isinstance(key, str)
+        self.items[key] = value
+
+    def __contains__(self, item):
+        assert isinstance(item, str)
+        return item in self.items
+
+    def __iter__(self):
+        for i in self.items:
+            yield i
+
 
 class List(Statement):
     def __init__(self, data):
@@ -208,6 +230,7 @@ class List(Statement):
             assert val.kind == "number"
             return self.data[val.data]
 
+
 class Function(Statement):
     def __init__(self, func, args, name):
         super(Function, self).__init__("function")
@@ -226,6 +249,7 @@ class Function(Statement):
             args_dict[arg] = args.data[n]
 
         return self.func(this, args_dict, env)
+
 
 class Code(Statement):
     def __init__(self, statements, args):
@@ -255,27 +279,20 @@ class Code(Statement):
         assert len(args.data) == len(self.args)
 
         # make a new environment with some special entries
-        # TODO: special __x entries are wrong type for comni
-        newEnv = Dict({
-                "__parent": env,
-                "__this": this,
-                "__args": args
-                })
-        newEnv.data["__frame"] = newEnv
+        newEnv = Dict({})
+        newEnv["parent"] = env
 
-        # TODO: add 'this' to newEnv so we dont have to do the gay
+        # add 'this' to newEnv so we dont have to do the gay
         # python thing of self.x everywhere
 
-        if self.args is not None:
-            # self.args = ["x", "y"]
-            # args = List([Number(1), Chain([Number(4), Name("plus"), List([Number(3)])])])
-            #      => [ 1, 4.plus[3] ]
+        if this is not None and isinstance(this, collections.Iterable):
+            for key in this:
+                newEnv[key] = this[key]
 
-            arg_vals = [x.evaluate(env) for x in args.data]
-            newEnv.data["__vals"] = arg_vals
-
-            for n,arg in enumerate(self.args):
-                newEnv.data[arg] = arg_vals[n]
+        # evaluate the args and pair with self.args in the newEnv
+        arg_vals = [x.evaluate(env) for x in args.data]
+        for n,arg in enumerate(self.args):
+            newEnv[arg] = arg_vals[n]
 
         res = None
         for statement in self.statements:
@@ -406,7 +423,8 @@ add4[][1];
         codeString = parser.as_string()
         print codeString
 
-        env = Dict({Name("y"): Number("7")})
+        env = Dict({"global": Number("1")})
+        print "env: ", env.as_string(" ")
         result = code.call(None, List([]), env)
 
         if result is not None:
