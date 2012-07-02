@@ -2,7 +2,15 @@
 Comni
 ====
 
-Comni is a programming language. 
+Comni is a programming language. It looks like this:
+
+      def addN = ![n]{
+        ![y]{
+           n.add[y];
+        };
+      };
+      var add2 = addN[2];
+      add2[9];
 
 It is in somy ways quite similar to javascript and lua. The goals are as follows:
 

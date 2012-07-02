@@ -24,6 +24,7 @@ import collections
 #     data-type   ??
 #  call-chain     Chain(list: Value)
 
+lexicalScope = True
 
 class Statement(object):
     builtins = {} # global data
@@ -256,6 +257,7 @@ class Code(Statement):
         super(Code, self).__init__("code")
         self.statements = statements # [statement]
         self.args = args     # [name]
+        self.closure = Dict({})
 
     def as_string(self, indent):
         ret = ""
@@ -273,6 +275,9 @@ class Code(Statement):
         return ret
 
     def evaluate(self, env):
+        # caputure the environment when we eval it. 
+        # see: http://howtonode.org/what-is-this
+        self.closure = env
         return self
 
     def call(self, this, args, env):
@@ -280,7 +285,11 @@ class Code(Statement):
 
         # make a new environment with some special entries
         newEnv = Dict({})
-        newEnv["parent"] = env
+        
+        if lexicalScope:
+            newEnv["parent"] = self.closure
+        else:
+            newEnv["parent"] = env
 
         # add 'this' to newEnv so we dont have to do the gay
         # python thing of self.x everywhere
@@ -405,6 +414,15 @@ def add4 = {
   ![y]{4.add[y]}
 };
 add4[][1];
+
+# NEXT 
+
+def addN = ![n]{
+  ![y]{n.add[y]}
+};
+var add2 = addN[2];
+
+add2[9];
 
 """.split("# NEXT")
 
