@@ -127,6 +127,26 @@ class Name(Statement):
         return env.lookup(self.data)
 
 
+class Boolean(Statement):
+    def __init__(self, data):
+        super(Boolean, self).__init__("boolean")
+        if data:
+            self.data = True
+        else:
+            self.data = False
+
+    def as_string(self, indent):
+        if self.data:
+            return "true"
+        else:
+            return "false"
+
+    def evaluate(self, env):
+        return self
+
+bool_true = Boolean(True)
+bool_false = Boolean(False)
+
 class Number(Statement):
     def __init__(self, data):
         super(Number, self).__init__("number")
@@ -368,23 +388,14 @@ class Chain(Statement):
 
 
 
-def number_asString(this, args, env):
-    return String(this.as_string(""))
-
-def number_add(this, args, env):
-    return Number(this.data + args["x"].data)
-
-def make_builtins():
-    Statement.builtins["number"] = {
-        "asString": Function(number_asString, [], "asString"),
-        "add": Function(number_add, ["x"], "add")
-        }
-
-make_builtins()
 
 def test_evaluator():
     from parse import Parser
     from lex import Tokenizer, mockfile
+
+    from function import make_builtins
+
+    global_env = make_builtins()
 
     test_list = """
 # NEXT 4;
@@ -424,8 +435,19 @@ var add2 = addN[2];
 
 add2[9];
 
-""".split("# NEXT")
+# NEXT 
 
+true;
+
+# NEXT 
+
+true.ifTrue[{4},{5}];
+
+# NEXT 
+
+false.ifTrue[{4},{5}];
+
+""".split("# NEXT")
 
     print "-"*50
     for inputString in test_list:
@@ -441,9 +463,9 @@ add2[9];
         codeString = parser.as_string()
         print codeString
 
-        env = Dict({"global": Number("1")})
-        print "env: ", env.as_string(" ")
-        result = code.call(None, List([]), env)
+        env = Dict(global_env)
+        val = code.evaluate(env)
+        result = val.call(None, List([]), env)
 
         if result is not None:
             print result.as_string("")
