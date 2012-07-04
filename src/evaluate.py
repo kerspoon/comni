@@ -144,8 +144,20 @@ class Boolean(Statement):
     def evaluate(self, env):
         return self
 
+
 bool_true = Boolean(True)
 bool_false = Boolean(False)
+
+
+class File(Statement):
+    def __init__(self, filename):
+        super(File, self).__init__("file")
+        self.filename = filename # string
+        self.file_obj = open(self.filename) 
+
+    def as_string(self, indent):
+        return "<file-" + self.filename + ">"
+
 
 class Number(Statement):
     def __init__(self, data):
@@ -446,6 +458,17 @@ true.ifTrue[{4},{5}];
 # NEXT 
 
 false.ifTrue[{4},{5}];
+
+
+# NEXT File;
+# NEXT File["../README.md"];
+# NEXT 
+
+def x = File["../README.md"]; 
+x.read[1];
+var y = x.read[5];
+x.close[];
+y;
 
 """.split("# NEXT")
 

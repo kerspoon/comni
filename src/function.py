@@ -1,6 +1,6 @@
 
 
-from evaluate import Statement, Var, Def, Set, Inc, Name, Number, String, Dict, List, Function, Code, Chain, bool_true, bool_false
+from evaluate import Statement, Var, Def, Set, Inc, Name, Number, String, Dict, List, Function, Code, Chain, bool_true, bool_false, File
 import operator
 
 def number_two_number(name, func):
@@ -20,6 +20,23 @@ def boolean_ifTrue(this, args, env):
         if "alt" in args:
             return args["alt"].call(None, List([]), env)
         return Name("None")
+
+
+def file_open(this, args, env):
+    return File(args["name"].data)
+
+def file_close(this, args, env):
+    this.file_obj.close()
+    return bool_true
+
+def file_read(this, args, env):
+    return String(this.file_obj.read(args["n"].data))
+
+def file_peek(this, args, env):
+    loc = self.stream.tell()
+    tmp = self.stream.read(args["n"].data)
+    self.stream.seek(loc)
+    return String(tmp)
 
 def make_builtins():
     Statement.builtins["number"] = {
@@ -42,9 +59,16 @@ def make_builtins():
         "ifTrue": Function(boolean_ifTrue, ["cons", "alt"], "ifTrue"),
         }
     
+    Statement.builtins["file"] = {
+        "close": Function(file_close, [], "close"),
+        "read": Function(file_read, ["n"], "read"),
+        "peek": Function(file_peek, ["n"], "peek"),
+        }
+    
     global_env = {
         "true" : bool_true,
         "false": bool_false,
+        "File": Function(file_open, ["name"], "File")
         }
 
     return global_env
