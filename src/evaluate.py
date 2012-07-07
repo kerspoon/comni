@@ -112,7 +112,9 @@ class Inc(Statement):
         return "inc " + self.name
 
     def evaluate(self, env):
-        raise NotImplementedError() # TODO: Inc.evaluate
+        items = Name(self.name).evaluate(env)
+        for k,v in items.both():
+            env[k] = v
 
 
 class Name(Statement):
@@ -234,6 +236,11 @@ class Dict(Statement):
     def __iter__(self):
         for i in self.items:
             yield i
+
+    def both(self):
+        for k,v in self.items.items():
+            yield k,v
+        
 
 
 class List(Statement):
@@ -410,6 +417,7 @@ def test_evaluator():
     global_env = make_builtins()
 
     test_list = """
+
 # NEXT 4;
 # NEXT def x = 4; x;
 # NEXT def x = ["a", "b"]; x;
@@ -427,6 +435,10 @@ def ret4 = ![x]{
 set x = 9;
 ret4[x];
 x;
+# NEXT 
+def a = 1;
+def b = ();
+def c = ( d=3);
 # NEXT 4.asString;
 # NEXT 4.asString[];
 # NEXT 4.add[2];
@@ -469,6 +481,12 @@ x.read[1];
 var y = x.read[5];
 x.close[];
 y;
+
+# NEXT 
+
+def x = ( y=4 );
+def n = { inc x; y };
+n[];
 
 """.split("# NEXT")
 

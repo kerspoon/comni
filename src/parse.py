@@ -187,7 +187,7 @@ class Parser():
             name = self.read_name()
             self.skip_literal("=")
             value = self.read_chain()
-            ret[name] = value
+            ret[name.data] = value
             if not self.is_literal(","):
                 break
             else:
@@ -197,7 +197,7 @@ class Parser():
             name = self.read_name()
             self.skip_literal("=")
             value = self.read_chain()
-            ret[name] = value
+            ret[name.data] = value
         self.skip_literal(")")
         return Dict(ret)
 
@@ -230,6 +230,7 @@ def test_parser():
     test_list = """
 # NEXT x;
 # NEXT x.y;
+# NEXT (x=1);
 # NEXT x.y[5][{ inc bob; }, "hello"](x=6);
 # NEXT (a=1, b=2)(x=a);
 # NEXT ![x] { 4;};
