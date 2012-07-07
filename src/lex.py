@@ -55,9 +55,21 @@ class Tokenizer():
     # ---- private functions ----
 
     def skip_whitespace(self):
-        # TODO: deal with comments
-        while(self.stream.peek(1) in whitespace):
-            self.stream.read(1)
+        while True:
+            while(self.stream.peek(1) in whitespace):
+                self.stream.read(1)
+            if self.stream.peek(2) == "/*":             
+                self.stream.read(len("/*"))
+                while(self.stream.peek(2) != "*/"):
+                    self.stream.read(1)          
+                self.stream.read(len("*/"))
+            elif self.stream.peek(1) == "#":               
+                self.stream.read(len("#"))
+                while(self.stream.peek(1) != "\n"):
+                    self.stream.read(1)             
+                self.stream.read(len("\n"))
+            else:
+                return
 
     def read_literal(self, lit):
         tmp = self.stream.read(len(lit))
@@ -252,6 +264,9 @@ x
 # NEXT ![x, y] {x.plus[y];};
 # NEXT ![x, y] {x.plus[y]};
 # NEXT !  [   ] {  4  } ;
+# NEXT ABC; /* comment */ DEF;
+# NEXT ABC; # comment 
+DEF;
 """.split("# NEXT")
 
 # NEXT inc y.x;

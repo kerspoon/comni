@@ -57,6 +57,8 @@ class Parser():
             self.read_all()
         return self.code.as_string("")
 
+    # ---- private functions ----
+
     def read(self):
         self.current_token += 1
         return self.tokens[self.current_token-1]

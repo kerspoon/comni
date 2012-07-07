@@ -374,9 +374,6 @@ Progress
 
 The lexer, parser and evaluator basically work and there are a few predefined functions. The next big task is to be able to read and write files so we can work towards having an external test library. 
 
-1. Create a built-in type for reading and writing files.
-1. Allow comments in code (extend lexer).
-1. Write Inc.evaluate[].
 1. Think about prototype inheritance. 
 1. Add a load more built-in functions.
 
