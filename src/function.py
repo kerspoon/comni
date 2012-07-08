@@ -38,9 +38,24 @@ def file_peek(this, args, env):
     self.stream.seek(loc)
     return String(tmp)
 
+
+def global_frame(this, args, env):
+    return env
+
+def global_print(this, args, env):
+    tmp = args["x"].as_string("")
+    print tmp
+    return tmp
+
+def global_whileTrue(this, args, env):
+    while True:
+        val = args["x"].call(None, List([]), env)
+        if val is not bool_true:
+            return val
+
 def make_builtins():
     Statement.builtins["number"] = {
-        "asString": Function(number_asString, [], "asString"),
+        "str": Function(number_asString, [], "str"),
         }
 
     number_two_number("add", operator.add)
@@ -52,14 +67,16 @@ def make_builtins():
     number_two_number("abs", operator.abs)
 
     Statement.builtins["string"] = {
-        "asString": Function(number_asString, [], "asString"),
+        "str": Function(number_asString, [], "str"),
         }
 
     Statement.builtins["boolean"] = {
+        "str": Function(number_asString, [], "str"),
         "ifTrue": Function(boolean_ifTrue, ["cons", "alt"], "ifTrue"),
         }
     
     Statement.builtins["file"] = {
+        "str": Function(number_asString, [], "str"),
         "close": Function(file_close, [], "close"),
         "read": Function(file_read, ["n"], "read"),
         "peek": Function(file_peek, ["n"], "peek"),
@@ -68,7 +85,10 @@ def make_builtins():
     global_env = {
         "true" : bool_true,
         "false": bool_false,
-        "File": Function(file_open, ["name"], "File")
+        "File": Function(file_open, ["name"], "File"),
+        "Frame": Function(global_frame, [], "Frame"),
+        "Print": Function(global_print, ["x"], "Frame"),
+        "WhileTrue": Function(global_whileTrue, ["x"], "WhileTrue")
         }
 
     return global_env
@@ -100,10 +120,6 @@ def make_builtins():
 #  has/in
 #  eq
 #  for
-
-# global:
-#  whileTrue
-#  print
 
 make_builtins()
 

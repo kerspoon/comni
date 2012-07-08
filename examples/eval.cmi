@@ -7,7 +7,7 @@ def Statement = {
   def call = {Error["not implemented"]};
   def eval = {Error["not implemented"]};
   def get  = {Error["not implemented"]};
-  frame;
+  Frame[];
 }[];
 
 def Var = {
@@ -38,6 +38,6 @@ def Var = {
     }];
   };
 
-  frame;
+  Frame[];
 }[];
 

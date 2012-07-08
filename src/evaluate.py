@@ -191,6 +191,7 @@ class Dict(Statement):
         for key in data:
             assert isinstance(key, str), str(key) + key.data
         self.items = data # {name => chain}
+        self.parent = None
 
     def as_string(self, indent):
         ret = ", ".join(key + " = " + val.as_string(indent) for key,val in self.items.items())
@@ -219,8 +220,8 @@ class Dict(Statement):
         assert isinstance(key, str)
         if key in self.items:
             return self[key]
-        assert "parent" in self.items, "failed lookup of " + key
-        return self["parent"].lookup(key)
+        assert self.parent is not None, "failed lookup of " + key
+        return self.parent.lookup(key)
 
     def __getitem__(self, key):
         return self.items[key]
@@ -326,9 +327,9 @@ class Code(Statement):
         newEnv = Dict({})
         
         if lexicalScope:
-            newEnv["parent"] = self.closure
+            newEnv.parent = self.closure
         else:
-            newEnv["parent"] = env
+            newEnv.parent = env
 
         # add 'this' to newEnv so we dont have to do the gay
         # python thing of self.x everywhere
@@ -419,6 +420,7 @@ def test_evaluator():
     test_list = """
 
 # NEXT 4;
+# NEXT def x = 4;
 # NEXT def x = 4; x;
 # NEXT def x = ["a", "b"]; x;
 # NEXT def x = ["a", "b"]; x[0];
@@ -439,8 +441,8 @@ x;
 def a = 1;
 def b = ();
 def c = ( d=3);
-# NEXT 4.asString;
-# NEXT 4.asString[];
+# NEXT 4.str;
+# NEXT 4.str[];
 # NEXT 4.add[2];
 
 # NEXT 
@@ -487,6 +489,47 @@ y;
 def x = ( y=4 );
 def n = { inc x; y };
 n[];
+
+# NEXT 
+
+def x = {
+  def y = 4;
+  Frame[];
+};
+
+x[];
+
+
+# NEXT 
+
+
+def Statement = {
+  var kind;
+  def str  = {Error["not implemented"]};
+  def call = {Error["not implemented"]};
+  def eval = {Error["not implemented"]};
+  def get  = {Error["not implemented"]};
+  Frame[];
+}[];
+
+Print["Statement = "];
+
+Print[Statement];
+
+def Var = {
+  inc Statement;
+  set kind = "var";
+  var name;
+  var chain;
+
+  Frame[];
+}[];
+
+Print["Var = "];
+Print[Var];
+
+4;
+
 
 """.split("# NEXT")
 
