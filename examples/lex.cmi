@@ -1,0 +1,39 @@
+def Token = {
+  var kind;
+  var text;
+  Frame[];
+};
+
+def Tokenizer = [stream, debug]{
+
+    def m_stream = stream;
+    def m_debug = debug;
+    def m_tokens = [];
+
+    def readAll = {
+        skipWhitespace[];
+        WhileTrue[{
+            readStatement[];
+            skipWhitespace[];
+            readLiteral[";"];
+            skipWhitespace[];
+            m_stream.isEnd[1];
+        }];
+    };
+
+    def str = {
+        var res = [];
+        m_tokens.forEach[![elem]{
+            elem.kind.ifEqual["STRING", {
+                res.push["\"".append[elem.text].append["\""]];
+            },{
+                res.push[elem.text];
+            }];
+        }];
+    };
+
+    def skipWhitespace = {
+        whileTrue[{
+                whileCond[{m_stream. # TODO: finish
+        }];
+    };
